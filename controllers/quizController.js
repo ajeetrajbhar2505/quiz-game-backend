@@ -9,25 +9,57 @@ const Question = require('../models/Question');
 exports.createQuiz = async (req, res) => {
   try {
     const { title, description, questions, rewardId } = req.body;
-    const reward = await Reward.findById(rewardId);
-    
+
+    // Check if the provided rewardId exists in the database
+    let reward = await Reward.findById(rewardId);
+
+    // If reward doesn't exist, create a new one with default values
     if (!reward) {
-      return res.status(400).json({ message: 'Invalid reward ID' });
+      reward = await new Reward({
+        type: "Points",
+        value: 50,
+        description: "Reward for completing the quiz successfully.",
+      }).save();
     }
 
+    // Create the quiz first
     const newQuiz = new Quiz({
       title,
       description,
-      questions,
-      reward: rewardId
+      reward: reward._id, // Reference to the reward ObjectId
     });
 
-    await newQuiz.save();
-    res.status(201).json(newQuiz);
+    // Save the quiz and get its saved _id
+    const savedQuiz = await newQuiz.save();
+
+    // Save the questions and link them to the newly created quiz
+    const savedQuestionIds = [];
+    for (const { text, options, correctAnswer } of questions) {
+      const newQuestion = new Question({
+        text,
+        options,
+        correctAnswer,
+        quiz: savedQuiz._id,  // Link question to the saved quiz
+      });
+      const savedQuestion = await newQuestion.save();
+      savedQuestionIds.push(savedQuestion._id);
+    }
+
+    // Update the quiz with the list of saved question ObjectIds
+    savedQuiz.questions = savedQuestionIds;
+    await savedQuiz.save(); // Save the quiz again after associating questions
+
+    // Return the created quiz with its questions
+    res.status(201).json(savedQuiz);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Improved error message for debugging
+    console.error('Error creating quiz:', error);
+    res.status(500).json({ message: 'An error occurred while creating the quiz.', error: error.message });
   }
 };
+
+
+
 
 // Get all quizzes
 exports.getAllQuizzes = async (req, res) => {
@@ -45,7 +77,7 @@ exports.getQuizById = async (req, res) => {
     const quiz = await Quiz.findById(req.params.quizId)
       .populate('reward')
       .populate('questions');
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -61,7 +93,7 @@ exports.attemptQuiz = async (req, res) => {
   try {
     const { userId, answers } = req.body;
     const quiz = await Quiz.findById(req.params.quizId).populate('questions');
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -73,7 +105,7 @@ exports.attemptQuiz = async (req, res) => {
     for (let i = 0; i < totalQuestions; i++) {
       const question = await Question.findById(quiz.questions[i]);
       const userAnswer = answers[i];
-      
+
       const isCorrect = userAnswer === question.correctAnswer;
       correctAnswers.push(isCorrect);
 
