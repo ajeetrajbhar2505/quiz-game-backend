@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Otp = require('../models/Otp');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const otpGenerator = require('otp-generator');
@@ -25,7 +26,7 @@ exports.login = async (req, res) => {
     }
 };
 
-// Google OAuth Login
+// Google OAuth Login with OTP
 exports.googleLogin = async (req, res) => {
     const { token } = req.body;
 
@@ -44,13 +45,28 @@ exports.googleLogin = async (req, res) => {
             await user.save();
         }
 
-        const authToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        // Generate OTP
+        const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false });
 
-        res.json({ token: authToken, user });
+        // Store OTP in DB (delete existing OTPs first)
+        await Otp.deleteMany({ email });
+        await new Otp({ email, otp }).save();
+
+        // Send OTP via Email
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Your OTP Code',
+            text: `Your OTP code is ${otp}. It is valid for 5 minutes.`
+        });
+
+        res.json({ message: 'OTP sent to email, please verify' });
+
     } catch (error) {
         res.status(500).json({ message: 'Google authentication failed' });
     }
 };
+
 
 
 
@@ -73,12 +89,11 @@ exports.sendOTP = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false });
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // Expire in 5 minutes
 
-        // Store OTP in DB (delete existing OTPs first)
-        await Otp.deleteMany({ email });
-        await new Otp({ email, otp }).save();
+        await Otp.deleteMany({ email }); // Remove existing OTPs
+        await new Otp({ email, otp, expiresAt }).save();
 
-        // Send OTP via Email
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
             to: email,
@@ -93,6 +108,7 @@ exports.sendOTP = async (req, res) => {
     }
 };
 
+
 // Verify OTP and Login
 exports.verifyOTP = async (req, res) => {
     const { email, otp } = req.body;
@@ -100,17 +116,22 @@ exports.verifyOTP = async (req, res) => {
     try {
         const otpRecord = await Otp.findOne({ email, otp });
 
-        if (!otpRecord) return res.status(400).json({ message: 'Invalid or expired OTP' });
+        if (!otpRecord) return res.status(400).json({ message: 'Invalid OTP' });
 
-        await Otp.deleteMany({ email }); // Remove OTP after verification
+        if (otpRecord.expiresAt < Date.now()) {
+            await Otp.deleteMany({ email }); // Delete expired OTP
+            return res.status(400).json({ message: 'OTP has expired, request a new one' });
+        }
+
+        await Otp.deleteMany({ email }); // Remove OTP after successful verification
 
         const user = await User.findOne({ email });
-
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.json({ token, user });
+
     } catch (error) {
         res.status(500).json({ message: 'OTP verification failed' });
     }
