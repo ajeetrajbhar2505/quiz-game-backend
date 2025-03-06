@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
 
 const RewardSchema = new mongoose.Schema({
-  type: { type: String, required: true }, // Type of reward (e.g., points, badges, cash)
-  value: { type: Number, required: true }, // Value of the reward (e.g., 50 points)
-  description: { type: String, required: true }, // Description of the reward
+  type: { 
+    type: String, 
+    enum: ['points', 'cash', 'badge', 'bonus'], // Reward types
+    required: true 
+  }, 
+  value: { type: Number, required: true }, // Example: 50 points or ₹10
+  description: { type: String, required: true }, // Example: "Earned from quiz", "Daily Challenge Bonus"
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Who received the reward
   createdAt: { type: Date, default: Date.now }
 });
 

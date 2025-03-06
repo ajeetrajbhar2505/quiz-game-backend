@@ -2,8 +2,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const connectDB = require('./config/db');  // Import the database connection function
-const quizRoutes = require('./routes/quizRoutes');
-const userRoutes = require('./routes/userRoutes');
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
@@ -15,12 +13,22 @@ connectDB();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Routes
+// Import Routes
+const quizRoutes = require('./routes/quizRoutes');
+const questionRoutes = require('./routes/questionRoutes');
+const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
+const rewardRoutes = require('./routes/rewardRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+
+// Use Routes
 app.use('/api/quizzes', quizRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/attempts', quizAttemptRoutes);
+app.use('/api/rewards', rewardRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Start the server
-const port = 5000;
+const port =  process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`✅ Server running on http://localhost:${port}`);
 });

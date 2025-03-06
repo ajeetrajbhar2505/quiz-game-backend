@@ -5,11 +5,16 @@ const bcrypt = require('bcryptjs');
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true }, // Added password field
-  totalPoints: { type: Number, default: 0 },
+  phoneNumber: { type: String, unique: true, sparse: true }, // Optional for OTP
+  password: { type: String, required: true },
+  totalPoints: { type: Number, default: 0 }, // Total rewards earned
+  walletBalance: { type: Number, default: 0 }, // ₹ balance available for withdrawal
   rewards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Reward' }],
+  upiId: { type: String, required: false }, // UPI ID for withdrawals
+  role: { type: String, enum: ['student', 'admin'], default: 'student' }, // Role-based access
   createdAt: { type: Date, default: Date.now }
 });
+
 
 // Hash the password before saving the user document
 UserSchema.pre('save', async function(next) {

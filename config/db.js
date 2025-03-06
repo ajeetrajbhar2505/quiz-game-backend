@@ -1,18 +1,16 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-// MongoDB URI
-let mongoURI = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_KEY}@cluster0.j6q15.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Function to connect to the database
 const connectDB = async () => {
   try {
-    await mongoose.connect(mongoURI, {
+    await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,     // Ensures MongoDB driver uses the new URL parser
     });
-    console.log('MongoDB Connected');
+    console.log('✅ MongoDB Connected')
   } catch (err) {
-    console.error('Database connection error:', err.message);
+    console.error('❌ MongoDB Connection Error: ', err.message)
     process.exit(1); // Exit process with failure
   }
 };
