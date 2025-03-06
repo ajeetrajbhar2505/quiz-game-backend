@@ -4,10 +4,11 @@ const Reward = require('../models/Reward');
 // Register a new user
 exports.registerUser = async (req, res) => {
   try {
-    const { username, email } = req.body;
+    const { username, email,password } = req.body;
     const newUser = new User({
       username,
-      email
+      email,
+      password
     });
     await newUser.save();
     res.status(201).json(newUser);
@@ -15,6 +16,35 @@ exports.registerUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.loginUser = async (req, res) => {
+  const { email, enteredPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    
+    // If the user doesn't exist or password is incorrect
+    if (!user || !(await user.matchPassword(enteredPassword))) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Success: User authenticated
+    return res.status(200).json({
+      message: 'Login successful!',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        totalPoints: user.totalPoints,
+        rewards: user.rewards
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error, please try again later' }); // Internal server error
+  }
+}
+
 
 // Get user details
 exports.getUserDetails = async (req, res) => {
