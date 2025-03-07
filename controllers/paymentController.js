@@ -4,6 +4,7 @@ const User = require('../models/User');
 require('dotenv').config();
 
 // Initialize Razorpay
+// https://dashboard.razorpay.com/app/website-app-settings/api-keys
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -27,8 +28,9 @@ exports.createOrder = async (req, res) => {
         const transaction = new Transaction({
             user: userId,
             orderId: order.id,
+            type : 'withdraw',
+            razorpayPaymentId : order.id,
             amount,
-            status: 'Pending'
         });
 
         await transaction.save();
