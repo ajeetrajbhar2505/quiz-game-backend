@@ -42,7 +42,7 @@ exports.createOrder = async (req, res) => {
         const transaction = new Transaction({
             user: userId,
             type: 'withdraw',
-            razorpayPaymentId: order.id,
+            razorpay_payment_id: order.id,
             amount,
         });
 
@@ -58,10 +58,10 @@ exports.createOrder = async (req, res) => {
 // Verify Payment
 exports.verifyPayment = async (req, res) => {
     try {
-        const { orderId, userId } = req.body;
+        const { transaction_id,razorpay_order_id, razorpay_signature, razorpay_payment_id, userId } = req.body;
 
         // Find the transaction to get the amount before updating the status
-        const transaction = await Transaction.findOne({ _id: new Types.ObjectId(orderId) });
+        const transaction = await Transaction.findOne({ _id: new Types.ObjectId(transaction_id) });
 
         if (!transaction) {
             return res.status(404).json({ message: 'Transaction not found' });
@@ -81,10 +81,10 @@ exports.verifyPayment = async (req, res) => {
         }
 
         // Deduct points from the user's account
-        await User.findByIdAndUpdate(userId, { $inc: { totalPoints: -pointsToDeduct,walletBalance : -transaction.amount } });
+        await User.findByIdAndUpdate(userId, { $inc: { totalPoints: -pointsToDeduct, walletBalance: -transaction.amount } });
 
         // Update the transaction status to 'Success'
-        await Transaction.updateOne({ _id: new Types.ObjectId(orderId) }, { $set: { status: 'Success' } });
+        await Transaction.updateOne({ _id: new Types.ObjectId(orderId) }, { $set: { status: 'Success', razorpay_order_id, razorpay_signature, razorpay_payment_id } });
 
         res.json({ message: 'Payment verified successfully', transaction });
     } catch (error) {
