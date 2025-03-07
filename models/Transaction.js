@@ -8,7 +8,9 @@ const TransactionSchema = new mongoose.Schema({
     required: true 
   },
   amount: { type: Number, required: true }, // Amount in ₹
-  razorpayPaymentId: { type: String, unique: true, sparse: true }, // Razorpay transaction ID (only for deposit/withdraw)
+  razorpay_payment_id: { type: String, unique: true, sparse: true },
+  razorpay_order_id: { type: String, unique: true, sparse: true },
+  razorpay_signature: { type: String, unique: true, sparse: true },
   status: { 
     type: String, 
     enum: ['pending', 'success', 'failed'], 

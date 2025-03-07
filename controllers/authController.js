@@ -69,15 +69,20 @@ exports.googleLogin = async (req, res) => {
 
 
 
-
 // Email Transporter (Configure SMTP settings)
+
+// Don't use real pass , Generate App pass for smt servive
+// https://myaccount.google.com/apppasswords?rapt=AEjHL4OgrUmKhpKnZuGdciaA_ZmE_IMYv2jDJFKi0us0w57uo9c6gqX8s_zO-_aMsbpiDJazKms3DQ34CH9u_F2Zuy_LkdSTSFxdoAVvNvqolfr2Lp3OqjA
 const transporter = nodemailer.createTransport({
-    service: 'Gmail',
+    host: "gmail",
+    host: 'smtp.gmail.com',
+    port: 587,    
+    secure: false,
     auth: {
         user: process.env.EMAIL_USER, // Your email
         pass: process.env.EMAIL_PASS  // Your email app password
     }
-});
+  });
 
 // Generate and Send OTP
 exports.sendOTP = async (req, res) => {

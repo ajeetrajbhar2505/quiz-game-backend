@@ -14,6 +14,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Import Routes
+const authRoutes = require('./routes/authRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
@@ -22,6 +23,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const walletRoutes = require('./routes/wallet.routes');
 
 // Use Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/attempts', quizAttemptRoutes);
