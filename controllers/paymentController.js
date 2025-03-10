@@ -1,7 +1,9 @@
 const Razorpay = require('razorpay');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const Wallet = require('../models/wallet'); // Path to your Wallet model
 const { Types } = require('mongoose');
+const mongoose = require('mongoose');
 require('dotenv').config();
 const crypto = require('crypto'); // Required for signature verification
 
@@ -60,8 +62,8 @@ exports.createOrder = async (req, res) => {
 // Verify Payment
 exports.verifyPayment = async (req, res) => {
     try {
-
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction_id, userId,status,description } = req.body;
+        const session = await mongoose.startSession(); // Start a session for transactions
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction_id, userId, status, description } = req.body;
 
         // Find the transaction to get the amount before updating the status
         const transaction = await Transaction.findOne({ _id: new Types.ObjectId(transaction_id) });
@@ -83,19 +85,37 @@ exports.verifyPayment = async (req, res) => {
             return res.status(400).json({ message: 'Insufficient points for withdrawal' });
         }
 
+        // Begin transaction for atomic updates
+        session.startTransaction();
+
 
         if (razorpay_signature) {
-                   // Deduct points from the user's account
-        await User.findByIdAndUpdate(
-            userId,
-            {
-                $inc: {
-                    totalPoints: -pointsToDeduct,
-                    walletBalance: -transaction.amount
-                }
+            // Deduct points from the user's account
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                {
+                    $inc: {
+                        totalPoints: -pointsToDeduct,
+                        walletBalance: -transaction.amount // Ensure this is the correct deduction amount
+                    }
+                },
+                { new: true, session } // This ensures that the updated document is returned
+            );
+
+            // After updating the User model, use the updated balance for the Wallet update
+            if (updatedUser) {
+                await Wallet.updateOne(
+                    { user: userId },
+                    {
+                        $set: {
+                            balance: updatedUser.walletBalance // Use the updated balance from the User document
+                        }
+                    },
+                    { session }
+                );
             }
-        ); 
         }
+
 
 
         // Update the transaction status to 'Success' | 'failed' | 'cancelled
@@ -109,8 +129,19 @@ exports.verifyPayment = async (req, res) => {
                     razorpay_payment_id,
                     description
                 }
+            },
+            {
+                session
             }
         );
+
+        // Commit the transaction
+        await session.commitTransaction();
+
+        // End the session
+        session.endSession();
+
+
 
         res.json({ message: 'Payment verified successfully', transaction });
     } catch (error) {

@@ -4,8 +4,63 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
+const Wallet = require('../models/wallet'); // Path to your Wallet model
+const bcrypt = require('bcryptjs');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 require('dotenv').config(); // Load environment variables from .env file
+
+
+exports.register = async (req, res) => {
+    const { username, email, phoneNumber, password, upiId, role } = req.body;
+
+    try {
+        // Check if the user already exists by email or username
+        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+
+        if (existingUser) {
+            return res.status(400).json({ message: 'User with this email or username already exists' });
+        }
+
+        // Hash the password before saving
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Create a new user
+        const newUser = new User({
+            username,
+            email,
+            phoneNumber,
+            password: hashedPassword,
+            upiId,
+            role: role || 'student', // Default to 'student' if role is not provided
+        });
+
+        // Save the new user to the database
+        await newUser.save();
+
+        // Create a wallet for the new user
+        const newWallet = new Wallet({
+            user: newUser._id,  // Link the wallet to the user
+            balance: 0, // Initial wallet balance is 0 INR
+        });
+
+        // Save the new wallet to the database
+        await newWallet.save();
+
+        // Delete the password field before sending the user data
+        const userResponse = newUser.toObject();
+        delete userResponse.password;
+
+        // Send response with user data, and wallet information (optional)
+        res.status(201).json({ user: userResponse, wallet: newWallet });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+
 
 // User Login with Email & Password
 exports.login = async (req, res) => {
