@@ -112,8 +112,19 @@ exports.sendOTP = async (req, res) => {
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Your OTP Code',
-            text: `Your OTP code is ${otp}. It is valid for 5 minutes.`
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <h2 style="color: #4CAF50;">Hello ${user.username},</h2>
+                    <p style="font-size: 16px;">Your OTP code is: <strong style="font-size: 20px; color: #FF5722;">${otp}</strong></p>
+                    <p style="font-size: 16px;">This code is valid for the next <strong>5 minutes</strong>. Please use it promptly.</p>
+                    <p style="font-size: 16px;">If you did not request this code, please ignore this message.</p>
+                    <br>
+                    <p style="font-size: 16px; color: #999;">Best regards,</p>
+                    <p style="font-size: 16px; color: #999;">Quiz Game Team</p>
+                </div>
+            `
         });
+        
 
         res.json({ message: 'OTP sent to email' });
 
