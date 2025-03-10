@@ -3,6 +3,6 @@ const router = express.Router();
 const rewardController = require('../controllers/rewardController');
 
 router.post('/add', rewardController.addReward);
-router.get('/user/:userId', rewardController.getUserRewards);
+router.get('/:id', rewardController.getUserRewards);
 
 module.exports = router;

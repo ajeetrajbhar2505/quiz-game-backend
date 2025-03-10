@@ -4,7 +4,6 @@ const QuizAttemptSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   quiz: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', required: true },
   score: { type: Number, required: true },
-  answers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Answer' }],
   reward: { type: mongoose.Schema.Types.ObjectId, ref: 'Reward', required: false },
   timeTaken: { type: Number, default: 0 }, // Time taken in seconds
   createdAt: { type: Date, default: Date.now }
