@@ -3,6 +3,8 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { Types } = require('mongoose');
 require('dotenv').config();
+const crypto = require('crypto'); // Required for signature verification
+
 
 // Initialize Razorpay
 // https://dashboard.razorpay.com/app/website-app-settings/api-keys
@@ -58,7 +60,8 @@ exports.createOrder = async (req, res) => {
 // Verify Payment
 exports.verifyPayment = async (req, res) => {
     try {
-        const { transaction_id,razorpay_order_id, razorpay_signature, razorpay_payment_id, userId } = req.body;
+
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction_id, userId,status,description } = req.body;
 
         // Find the transaction to get the amount before updating the status
         const transaction = await Transaction.findOne({ _id: new Types.ObjectId(transaction_id) });
@@ -80,11 +83,34 @@ exports.verifyPayment = async (req, res) => {
             return res.status(400).json({ message: 'Insufficient points for withdrawal' });
         }
 
-        // Deduct points from the user's account
-        await User.findByIdAndUpdate(userId, { $inc: { totalPoints: -pointsToDeduct, walletBalance: -transaction.amount } });
 
-        // Update the transaction status to 'Success'
-        await Transaction.updateOne({ _id: new Types.ObjectId(orderId) }, { $set: { status: 'Success', razorpay_order_id, razorpay_signature, razorpay_payment_id } });
+        if (razorpay_signature) {
+                   // Deduct points from the user's account
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $inc: {
+                    totalPoints: -pointsToDeduct,
+                    walletBalance: -transaction.amount
+                }
+            }
+        ); 
+        }
+
+
+        // Update the transaction status to 'Success' | 'failed' | 'cancelled
+        await Transaction.updateOne(
+            { _id: new Types.ObjectId(transaction_id) },
+            {
+                $set: {
+                    status,
+                    razorpay_order_id,
+                    razorpay_signature,
+                    razorpay_payment_id,
+                    description
+                }
+            }
+        );
 
         res.json({ message: 'Payment verified successfully', transaction });
     } catch (error) {
