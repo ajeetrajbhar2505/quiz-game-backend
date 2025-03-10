@@ -1,5 +1,4 @@
 // Create a Quiz
-const mongoose = require('mongoose');
 const Quiz = require('../models/Quiz');
 const Question = require('../models/Question');
 
