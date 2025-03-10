@@ -13,8 +13,8 @@ const TransactionSchema = new mongoose.Schema({
   razorpay_signature: { type: String, unique: true, sparse: true },
   status: { 
     type: String, 
-    enum: ['pending', 'success', 'failed'], 
-    default: 'pending' 
+    enum: ['initiated', 'success', 'failed'], 
+    default: 'initiated' 
   }, // Status of transaction
   description: { type: String }, // Description of the transaction (e.g., "Reward earned from quiz")
   createdAt: { type: Date, default: Date.now }
