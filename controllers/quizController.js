@@ -1,23 +1,53 @@
-const Quiz = require('../models/Quiz');
-
 // Create a Quiz
+const mongoose = require('mongoose');
+const Quiz = require('../models/Quiz');
+const Question = require('../models/Question');
+
+
+
 exports.createQuiz = async (req, res) => {
     try {
         const { title, description, questions } = req.body;
-        
+
+        // Step 1: Create and save the quiz first
         const quiz = new Quiz({
             title,
             description,
-            questions
         });
 
-        await quiz.save();
-        res.status(201).json({ message: 'Quiz created successfully', quiz });
+        // Save the quiz to get its ObjectId
+        const savedQuiz = await quiz.save();
+
+        // Step 2: Dynamically create questions and associate them with the quiz
+        const questionIds = [];
+        for (let questionData of questions) {
+            const { text, options, correctAnswer } = questionData;
+
+            // Create a new question and associate it with the quiz
+            const question = new Question({
+                text,
+                options,
+                correctAnswer,
+                quiz: savedQuiz._id, // Set the quiz reference
+            });
+
+            const savedQuestion = await question.save();
+            questionIds.push(savedQuestion._id); // Push the saved question's ObjectId
+        }
+
+        // Step 3: Update the quiz with the references to the questions
+        savedQuiz.questions = questionIds;
+        await savedQuiz.save();
+
+        res.status(201).json({ message: 'Quiz created successfully', quiz: savedQuiz });
 
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Error creating quiz', error });
     }
 };
+
+
 
 // Get All Quizzes
 exports.getQuizzes = async (req, res) => {
