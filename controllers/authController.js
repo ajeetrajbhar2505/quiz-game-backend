@@ -13,18 +13,27 @@ exports.login = async (req, res) => {
 
     try {
         const user = await User.findOne({ email });
+
         if (!user) return res.status(400).json({ message: 'User not found' });
 
+        // Check if the password matches
         const isMatch = await user.matchPassword(password);
         if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
+        // Generate a token after password match
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ token, user });
+        // Delete the password field before sending the user data
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
+        // Send response with the token and user data (without the password)
+        res.json({ token, user : userResponse });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
 
 // Google OAuth Login with OTP
 exports.googleLogin = async (req, res) => {
@@ -133,11 +142,16 @@ exports.verifyOTP = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.status(404).json({ message: 'User not found' });
 
+        // Remove sensitive fields manually or pick the fields you want to send
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ token, user });
+        res.json({ token, user: userResponse });
 
     } catch (error) {
         res.status(500).json({ message: 'OTP verification failed' });
     }
 };
+
