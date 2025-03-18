@@ -40,7 +40,7 @@ exports.register = async (req, res) => {
             phoneNumber,
             password: hashedPassword,
             upiId,
-            wallet : newWallet._id,
+            wallet: newWallet._id,
             role: role || 'student', // Default to 'student' if role is not provided
         });
 
@@ -99,10 +99,10 @@ exports.googleLogin = async (req, res) => {
         const authUrl = await client.generateAuthUrl({
             access_type: 'offline',  // Use 'offline' to get refresh token (optional)
             scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'], // Requested scopes
-          });
-          
-          // Send the URL back to the frontend
-          res.json({ url: authUrl });
+        });
+
+        // Send the URL back to the frontend
+        res.json({ url: authUrl });
 
     } catch (error) {
         res.status(500).json({ message: 'Google authentication failed' });
@@ -110,46 +110,46 @@ exports.googleLogin = async (req, res) => {
 };
 
 exports.googleCallBack = async (req, res) => {
-        
-        const { code } = req.query; // Authorization code from Google
-        
-        try {
-          // Step 1: Exchange the authorization code for an access token
-          const { tokens } = await client.getToken(code);
-          
-          // Step 2: Verify the ID token and extract user info
-          const ticket = await client.verifyIdToken({
+
+    const { code } = req.query; // Authorization code from Google
+
+    try {
+        // Step 1: Exchange the authorization code for an access token
+        const { tokens } = await client.getToken(code);
+
+        // Step 2: Verify the ID token and extract user info
+        const ticket = await client.verifyIdToken({
             idToken: tokens.id_token,
             audience: process.env.GOOGLE_CLIENT_ID,
-          });
-      
-          const { email, name, picture, sub: googleId } = ticket.getPayload(); // Google user info
-      
-          // Step 3: Check if user already exists (by email or username)
-          let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
-      
-          if (existingUser) {
+        });
+
+        const { email, name, picture, sub: googleId } = ticket.getPayload(); // Google user info
+
+        // Step 3: Check if user already exists (by email or username)
+        let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
+
+        if (existingUser) {
             // If user already exists, return the existing user document
-            return res.status(200).json({ user: existingUser });
-          }
-      
-          // Step 4: If user doesn't exist, create a new user
-          // Generate a random password since Google login does not require a password
-          const password = 'google-auth'; // You could choose another password handling strategy
-      
-          // Hash the password before saving
-          const salt = await bcrypt.genSalt(10);
-          const hashedPassword = await bcrypt.hash(password, salt);
-      
-          // Step 5: Create a new wallet for the user
-          const newWallet = new Wallet({
+            return res.redirect(`http://localhost:8100/home?token=${existingUser._id}`);
+        }
+
+        // Step 4: If user doesn't exist, create a new user
+        // Generate a random password since Google login does not require a password
+        const password = 'google-auth'; // You could choose another password handling strategy
+
+        // Hash the password before saving
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Step 5: Create a new wallet for the user
+        const newWallet = new Wallet({
             balance: 0, // Initial wallet balance is 0 INR
-          });
-      
-          await newWallet.save(); // Save the wallet in DB
-      
-          // Step 6: Create a new user and associate the wallet
-          const newUser = new User({
+        });
+
+        await newWallet.save(); // Save the wallet in DB
+
+        // Step 6: Create a new user and associate the wallet
+        const newUser = new User({
             username: name, // Use the Google name as username (you can customize this logic)
             email,
             password: hashedPassword, // Hashed password
@@ -157,22 +157,22 @@ exports.googleCallBack = async (req, res) => {
             wallet: newWallet._id, // Link wallet to the user
             googleId, // Store Google ID for reference
             profilePicture: picture, // Store profile picture from Google
-          });
-      
-          await newUser.save(); // Save the user to the DB
-      
-          // Step 7: Delete the password field before sending the user data in the response
-          const userResponse = newUser.toObject();
-          delete userResponse.password; // No need to send the password back to the frontend
-      
-          // Step 8: Return the new user and wallet data
-        //   here it should be app link instead of localhost
-          res.redirect(`http://localhost:8100/home?token=${userResponse._id}`);
+        });
 
-        } catch (error) {
-          console.error('Error during Google login callback:', error);
-          res.redirect(`http://localhost:8100/login`);
-        }
+        await newUser.save(); // Save the user to the DB
+
+        // Step 7: Delete the password field before sending the user data in the response
+        const userResponse = newUser.toObject();
+        delete userResponse.password; // No need to send the password back to the frontend
+
+        // Step 8: Return the new user and wallet data
+        //   here it should be app link instead of localhost
+        res.redirect(`http://localhost:8100/home?token=${userResponse._id}`);
+
+    } catch (error) {
+        console.error('Error during Google login callback:', error);
+        res.redirect(`http://localhost:8100/login`);
+    }
 
 }
 
