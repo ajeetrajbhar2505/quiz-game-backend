@@ -28,10 +28,10 @@ exports.addReward = async (req, res) => {
 // Get Rewards of a User
 exports.getUserRewards = async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId).populate('rewards');
+        const user = await User.findById(req.params.id).select('-password').populate('rewards').populate('wallet');
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        res.json(user.rewards);
+        res.json(user);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching rewards', error });
     }

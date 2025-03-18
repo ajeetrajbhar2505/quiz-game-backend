@@ -96,7 +96,6 @@ exports.verifyPayment = async (req, res) => {
                 {
                     $inc: {
                         totalPoints: -pointsToDeduct,
-                        walletBalance: -transaction.amount // Ensure this is the correct deduction amount
                     }
                 },
                 { new: true, session } // This ensures that the updated document is returned
@@ -108,7 +107,7 @@ exports.verifyPayment = async (req, res) => {
                     { user: userId },
                     {
                         $set: {
-                            balance: updatedUser.walletBalance // Use the updated balance from the User document
+                            balance: -transaction.amount // Use the updated balance from the User document
                         }
                     },
                     { session }

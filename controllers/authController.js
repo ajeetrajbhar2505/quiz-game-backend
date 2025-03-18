@@ -25,6 +25,14 @@ exports.register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Create a wallet for the new user
+        const newWallet = new Wallet({
+            balance: 0, // Initial wallet balance is 0 INR
+        });
+
+        // Save the new wallet to the database
+        await newWallet.save();
+
         // Create a new user
         const newUser = new User({
             username,
@@ -32,20 +40,14 @@ exports.register = async (req, res) => {
             phoneNumber,
             password: hashedPassword,
             upiId,
+            wallet : newWallet._id,
             role: role || 'student', // Default to 'student' if role is not provided
         });
 
         // Save the new user to the database
         await newUser.save();
 
-        // Create a wallet for the new user
-        const newWallet = new Wallet({
-            user: newUser._id,  // Link the wallet to the user
-            balance: 0, // Initial wallet balance is 0 INR
-        });
 
-        // Save the new wallet to the database
-        await newWallet.save();
 
         // Delete the password field before sending the user data
         const userResponse = newUser.toObject();
@@ -83,7 +85,7 @@ exports.login = async (req, res) => {
         delete userResponse.password;
 
         // Send response with the token and user data (without the password)
-        res.json({ token, user : userResponse });
+        res.json({ token, user: userResponse });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -140,13 +142,13 @@ exports.googleLogin = async (req, res) => {
 const transporter = nodemailer.createTransport({
     host: "gmail",
     host: 'smtp.gmail.com',
-    port: 587,    
+    port: 587,
     secure: false,
     auth: {
         user: process.env.EMAIL_USER, // Your email
         pass: process.env.EMAIL_PASS  // Your email app password
     }
-  });
+});
 
 // Generate and Send OTP
 exports.sendOTP = async (req, res) => {
@@ -179,7 +181,7 @@ exports.sendOTP = async (req, res) => {
                 </div>
             `
         });
-        
+
 
         res.json({ message: 'OTP sent to email' });
 
