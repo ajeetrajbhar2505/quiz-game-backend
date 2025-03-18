@@ -21,6 +21,7 @@ const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const walletRoutes = require('./routes/wallet.routes');
+const userRoutes = require('./routes/userRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -30,6 +31,7 @@ app.use('/api/attempts', quizAttemptRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/users', userRoutes);
 
 
 // Start the server
