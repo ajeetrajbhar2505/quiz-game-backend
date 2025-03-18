@@ -110,8 +110,6 @@ exports.googleLogin = async (req, res) => {
 };
 
 exports.googleCallBack = async (req, res) => {
-
-
         
         const { code } = req.query; // Authorization code from Google
         
