@@ -6,8 +6,8 @@ const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
 const Wallet = require('../models/wallet'); // Path to your Wallet model
 const bcrypt = require('bcryptjs');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 require('dotenv').config(); // Load environment variables from .env file
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URL);
 
 
 exports.register = async (req, res) => {
@@ -94,46 +94,91 @@ exports.login = async (req, res) => {
 
 // Google OAuth Login with OTP
 exports.googleLogin = async (req, res) => {
-    const { token } = req.body;
-
     try {
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID
-        });
 
-        const { email, name } = ticket.getPayload();
-
-        let user = await User.findOne({ email });
-
-        if (!user) {
-            user = new User({ username: name, email, password: 'google-auth' });
-            await user.save();
-        }
-
-        // Generate OTP
-        const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false });
-
-        // Store OTP in DB (delete existing OTPs first)
-        await Otp.deleteMany({ email });
-        await new Otp({ email, otp }).save();
-
-        // Send OTP via Email
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Your OTP Code',
-            text: `Your OTP code is ${otp}. It is valid for 5 minutes.`
-        });
-
-        res.json({ message: 'OTP sent to email, please verify' });
+        const authUrl = await client.generateAuthUrl({
+            access_type: 'offline',  // Use 'offline' to get refresh token (optional)
+            scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'], // Requested scopes
+          });
+          
+          // Send the URL back to the frontend
+          res.json({ url: authUrl });
 
     } catch (error) {
         res.status(500).json({ message: 'Google authentication failed' });
     }
 };
 
+exports.googleCallBack = async (req, res) => {
 
+
+    app.get('/google-callback', async (req, res) => {
+        
+        const { code } = req.query; // Authorization code from Google
+        
+        try {
+          // Step 1: Exchange the authorization code for an access token
+          const { tokens } = await client.getToken(code);
+          
+          // Step 2: Verify the ID token and extract user info
+          const ticket = await client.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+          });
+      
+          const { email, name, picture, sub: googleId } = ticket.getPayload(); // Google user info
+      
+          // Step 3: Check if user already exists (by email or username)
+          let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
+      
+          if (existingUser) {
+            // If user already exists, return the existing user document
+            return res.status(200).json({ user: existingUser });
+          }
+      
+          // Step 4: If user doesn't exist, create a new user
+          // Generate a random password since Google login does not require a password
+          const password = 'google-auth'; // You could choose another password handling strategy
+      
+          // Hash the password before saving
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
+      
+          // Step 5: Create a new wallet for the user
+          const newWallet = new Wallet({
+            balance: 0, // Initial wallet balance is 0 INR
+          });
+      
+          await newWallet.save(); // Save the wallet in DB
+      
+          // Step 6: Create a new user and associate the wallet
+          const newUser = new User({
+            username: name, // Use the Google name as username (you can customize this logic)
+            email,
+            password: hashedPassword, // Hashed password
+            role: 'student', // Default role
+            wallet: newWallet._id, // Link wallet to the user
+            googleId, // Store Google ID for reference
+            profilePicture: picture, // Store profile picture from Google
+          });
+      
+          await newUser.save(); // Save the user to the DB
+      
+          // Step 7: Delete the password field before sending the user data in the response
+          const userResponse = newUser.toObject();
+          delete userResponse.password; // No need to send the password back to the frontend
+      
+          // Step 8: Return the new user and wallet data
+          res.status(201).json({ user: userResponse, wallet: newWallet });
+      
+        } catch (error) {
+          console.error('Error during Google login callback:', error);
+          res.status(500).json({ message: 'Google authentication failed or server error' });
+        }
+      });
+      
+
+}
 
 // Email Transporter (Configure SMTP settings)
 
