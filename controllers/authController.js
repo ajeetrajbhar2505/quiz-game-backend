@@ -166,11 +166,12 @@ exports.googleCallBack = async (req, res) => {
           delete userResponse.password; // No need to send the password back to the frontend
       
           // Step 8: Return the new user and wallet data
-          res.status(201).json({ user: userResponse, wallet: newWallet });
-      
+        //   here it should be app link instead of localhost
+          res.redirect(`http://localhost:8100/home?token=${userResponse._id}`);
+
         } catch (error) {
           console.error('Error during Google login callback:', error);
-          res.status(500).json({ message: 'Google authentication failed or server error' });
+          res.redirect(`http://localhost:8100/login`);
         }
 
 }
