@@ -121,7 +121,7 @@ exports.addReward = async (req, res) => {
 
 exports.shareReward = async (req, res) => {
     try {
-        const { senderId, recipientEmail,description, value } = req.body;
+        const { senderId, recipientEmail, description, value } = req.body;
 
         // 100 points = 10 rupees, so 1 point = 0.1 rupees
         const rupeesToDeduct = (value / 100) * 10;
@@ -132,9 +132,8 @@ exports.shareReward = async (req, res) => {
             return res.status(404).json({ message: 'Sender not found' });
         }
 
-        // Find the sender's reward that has sufficient points (matching the points)
-        const senderReward = sender.rewards.find(reward => reward.value >= value);
-        if (!senderReward) {
+        // Check if the sender has sufficient total points
+        if (sender.totalPoints < value) {
             return res.status(400).json({ message: 'Sender does not have sufficient reward points' });
         }
 
@@ -150,19 +149,18 @@ exports.shareReward = async (req, res) => {
             return res.status(400).json({ message: 'Sender does not have sufficient wallet balance to share reward' });
         }
 
-        // Decrease the sender's reward points
-        await Reward.findByIdAndUpdate(senderReward._id, { $inc: { value: -value } });
-
-        // If the sender's reward points become zero, remove it from the sender's rewards
-        if (senderReward.value - value === 0) {
-            await User.findByIdAndUpdate(senderId, { $pull: { rewards: senderReward._id } });
-        }
-
         // Decrease the sender's wallet balance by the equivalent rupees
         await Wallet.findByIdAndUpdate(sender.wallet, { $inc: { balance: -rupeesToDeduct } });
 
-        // Check if the recipient already has this reward (by points, not description)
-        const recipientReward = recipient.rewards.find(reward => reward.value >= value);
+        // Decrement the sender's total points by the value being shared
+        const updatedSenderTotalPoints = sender.totalPoints - value;
+
+        // Update the sender's total points after deduction
+        await User.findByIdAndUpdate(senderId, { totalPoints: updatedSenderTotalPoints });
+
+        // Check if the recipient already has this reward (by description)
+        const recipientReward = recipient.rewards.find(reward => reward.description === description);
+
         if (recipientReward) {
             // If recipient already has the reward, increment the points
             await Reward.findByIdAndUpdate(recipientReward._id, { $inc: { value: value } });
@@ -180,13 +178,7 @@ exports.shareReward = async (req, res) => {
         // Increase the recipient's wallet balance by the equivalent rupees
         await Wallet.findByIdAndUpdate(recipient.wallet, { $inc: { balance: rupeesToDeduct } });
 
-        // Update total points for the sender and recipient
-
-        // Calculate sender's total points after the deduction
-        const senderTotalPoints = sender.rewards.reduce((total, reward) => total + reward.value, 0);
-        await User.findByIdAndUpdate(senderId, { totalPoints: senderTotalPoints });
-
-        // Calculate recipient's total points after the addition
+        // Calculate recipient's total points after the share
         const recipientTotalPoints = recipient.rewards.reduce((total, reward) => total + reward.value, 0);
         await User.findByIdAndUpdate(recipient._id, { totalPoints: recipientTotalPoints });
 
@@ -197,6 +189,8 @@ exports.shareReward = async (req, res) => {
         res.status(500).json({ message: 'Error sharing reward points', error });
     }
 };
+
+
 
 exports.redeemReward = async (req, res) => {
     try {
