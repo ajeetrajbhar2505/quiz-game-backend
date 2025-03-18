@@ -2,52 +2,119 @@ const Reward = require('../models/Reward');
 const User = require('../models/User');
 const Wallet = require('../models/wallet');
 
+
+exports.createFestivalReward = async (req, res) => {
+    try {
+        const { description, value } = req.body;  // Get description and value from request body
+
+        // Step 1: Create a new Reward for the festival
+        const newReward = new Reward({
+            description,  // Description like "Diwali Festival", "New Year Special"
+            value,        // Value (points associated with the festival reward)
+            type: 'festival',  // Indicating that this is a festival-specific reward
+        });
+
+        // Step 2: Save the new reward to the database
+        await newReward.save();
+
+        // Step 3: Send a success response
+        res.status(201).json({ message: 'Festival reward created successfully', reward: newReward });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error creating festival reward', error });
+    }
+};
+
+
+exports.redeemFestivalReward = async (req, res) => {
+    try {
+        const { userId, rewardId } = req.body;  // Get userId and rewardId from the request body
+
+        // Step 1: Find the user by ID
+        const user = await User.findById(userId).populate('rewards');  // Populate the rewards to check if the user has claimed any reward
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Step 2: Check if the user has already claimed the reward with the given rewardId
+        const existingReward = user.rewards.find(reward => reward._id.toString() === rewardId);
+        if (existingReward) {
+            return res.status(400).json({ message: 'You have already claimed this reward' });
+        }
+
+        // Step 3: Find the reward from the Reward collection by rewardId
+        const festivalReward = await Reward.findById(rewardId);
+        if (!festivalReward) {
+            return res.status(404).json({ message: 'Festival reward not found' });
+        }
+
+        // Step 4: Add the festival reward to the user's rewards array
+        await User.findByIdAndUpdate(userId, { $addToSet: { rewards: festivalReward._id } });
+
+        // Step 5: Send a success response
+        res.status(200).json({ message: 'Festival reward redeemed successfully', reward: festivalReward });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error redeeming festival reward', error });
+    }
+};
+
 // Add Reward to User
 exports.addReward = async (req, res) => {
     try {
-        const { userId, type, value, description } = req.body;
+        const { userId, description, value, type } = req.body;
 
-        // Check if the user already has this reward with the same type, value, and description
-        const existingReward = await Reward.findOne({ type, description });
+        // 100 points = 10 rupees, so 1 point = 0.1 rupees
+        const rupeesToAdd = (value / 100) * 10;
 
-        // Check if the user already has this reward assigned
-        const user = await User.findById(userId).populate('rewards');
+        // Find the user by ID and populate their rewards and wallet
+        const user = await User.findById(userId).populate('rewards wallet');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-        let rewardId;
+        // Check if the user already has the reward with the same description
+        const existingReward = user.rewards.find(reward => reward.description === description && reward.type === type);
 
-        // If reward exists, update the value and use the existing reward ID
         if (existingReward) {
-            // If the user already has the reward, update the reward value
-            const rewardAlreadyAssigned = user.rewards.some(reward => reward._id.toString() === existingReward._id.toString());
+            // If reward exists, update the value of the existing reward
+            await Reward.findByIdAndUpdate(existingReward._id, { $inc: { value: value } });
 
-            if (rewardAlreadyAssigned) {
-                // Update the value of the existing reward
-                await Reward.findByIdAndUpdate(existingReward._id, { $inc: { value: +value } });
-                rewardId = existingReward._id;
-            } else {
-                // If the reward is not yet assigned to the user, assign the existing reward
-                await User.findByIdAndUpdate(userId, { $addToSet: { rewards: existingReward._id } });
-                rewardId = existingReward._id;
-            }
+            // Update the user's total points after the addition
+            const totalPoints = user.rewards.reduce((total, reward) => total + reward.value, 0);
+            await User.findByIdAndUpdate(userId, { totalPoints });
+
+            // Increase the user's wallet balance by the equivalent rupees
+            await Wallet.findByIdAndUpdate(user.wallet._id, { $inc: { balance: rupeesToAdd } });
+
+            return res.status(200).json({ message: 'Reward value updated successfully', rewardId: existingReward._id });
         } else {
-            // If the reward doesn't exist, create a new one
+            // If reward doesn't exist, create a new reward
             const newReward = new Reward({
-                type,
+                description,
                 value,
-                description
+                type,
             });
 
             await newReward.save();
-            rewardId = newReward._id;
 
             // Add the new reward to the user's rewards
             await User.findByIdAndUpdate(userId, { $addToSet: { rewards: newReward._id } });
+
+            // Increase the user's wallet balance by the equivalent rupees
+            await Wallet.findByIdAndUpdate(user.wallet._id, { $inc: { balance: rupeesToAdd } });
+
+            // Update the user's total points after the addition
+            const totalPoints = user.rewards.reduce((total, reward) => total + reward.value, 0);
+            await User.findByIdAndUpdate(userId, { totalPoints });
+
+            return res.status(201).json({ message: 'New reward added successfully', rewardId: newReward._id });
         }
-
-        res.status(201).json({ message: 'Reward added or updated successfully', rewardId });
-
     } catch (error) {
-        res.status(500).json({ message: 'Error adding or updating reward', error });
+        console.error(error);
+        res.status(500).json({ message: 'Error adding reward', error });
     }
 };
 
@@ -131,6 +198,39 @@ exports.shareReward = async (req, res) => {
     }
 };
 
+exports.redeemReward = async (req, res) => {
+    try {
+        const { userId, rewardId } = req.body;
+
+        // Step 1: Find the user by ID
+        const user = await User.findById(userId).populate('rewards');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Step 2: Find the reward by ID in the Rewards collection
+        const reward = await Reward.findById(rewardId);
+        if (!reward) {
+            return res.status(404).json({ message: 'Reward not found' });
+        }
+
+        // Step 3: Check if the user already has this reward in their rewards array
+        const rewardAlreadyAssigned = user.rewards.some(existingReward => existingReward._id.toString() === reward._id.toString());
+        if (rewardAlreadyAssigned) {
+            return res.status(400).json({ message: 'User already has this reward' });
+        }
+
+        // Step 4: Add the reward to the user's rewards array
+        await User.findByIdAndUpdate(userId, { $addToSet: { rewards: reward._id } });
+
+        // Step 5: Send a success response
+        res.status(200).json({ message: 'Reward redeemed successfully', reward });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error redeeming reward', error });
+    }
+};
 
 
 

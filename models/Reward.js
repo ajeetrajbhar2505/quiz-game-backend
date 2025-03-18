@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const RewardSchema = new mongoose.Schema({
   type: { 
     type: String, 
-    enum: ['points', 'cash', 'badge', 'bonus','shared'], // Reward types
+    enum: ['points', 'cash', 'badge', 'bonus','shared','festival'], // Reward types
     required: true 
   }, 
   value: { type: Number, required: true }, 
