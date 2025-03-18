@@ -112,7 +112,6 @@ exports.googleLogin = async (req, res) => {
 exports.googleCallBack = async (req, res) => {
 
 
-    app.get('/google-callback', async (req, res) => {
         
         const { code } = req.query; // Authorization code from Google
         
@@ -175,8 +174,6 @@ exports.googleCallBack = async (req, res) => {
           console.error('Error during Google login callback:', error);
           res.status(500).json({ message: 'Google authentication failed or server error' });
         }
-      });
-      
 
 }
 
