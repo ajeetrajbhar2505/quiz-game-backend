@@ -4,7 +4,7 @@
   "description": "Daily Practice on nodejs enviroment",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon practice.js"
+    "start": "nodemon app.js"
   },
   "author": "ajit",
   "license": "ISC",
