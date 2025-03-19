@@ -4,9 +4,9 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
-const Wallet = require('../models/wallet'); // Path to your Wallet model
+const Wallet = require('../models/wallet'); 
 const bcrypt = require('bcryptjs');
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config(); 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URL);
 
 
@@ -167,7 +167,9 @@ exports.googleCallBack = async (req, res) => {
 
         // Step 8: Return the new user and wallet data
         //   here it should be app link instead of localhost
-        res.redirect(`http://localhost:8100/home?token=${userResponse._id}`);
+        const token = jwt.sign({ id: userResponse._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        res.redirect(`http://localhost:8100/home?token=${token}`);
 
     } catch (error) {
         console.error('Error during Google login callback:', error);

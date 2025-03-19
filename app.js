@@ -13,6 +13,10 @@ connectDB().then();
 app.use(cors());
 app.use(bodyParser.json());
 
+const authMiddleware =   require('./controllers/authMiddleware');
+
+
+
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
 const quizRoutes = require('./routes/quizRoutes');
@@ -25,17 +29,17 @@ const userRoutes = require('./routes/userRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/quizzes', quizRoutes);
-app.use('/api/questions', questionRoutes);
-app.use('/api/attempts', quizAttemptRoutes);
-app.use('/api/rewards', rewardRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/wallet', walletRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/quizzes', authMiddleware, quizRoutes);
+app.use('/api/questions', authMiddleware, questionRoutes);
+app.use('/api/attempts', authMiddleware, quizAttemptRoutes);
+app.use('/api/rewards', authMiddleware, rewardRoutes);
+app.use('/api/payments', authMiddleware, paymentRoutes);
+app.use('/api/wallet', authMiddleware, walletRoutes);
+app.use('/api/users', authMiddleware, userRoutes);
 
 
 // Start the server
-const port =  process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`✅ Server running on http://localhost:${port}`);
 });
