@@ -130,7 +130,7 @@ exports.googleCallBack = async (req, res) => {
 
         if (existingUser) {
         // If user already exists, return the existing user document
-        const token = jwt.sign({ id: userResponse._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         return res.redirect(`http://localhost:8100/home?token=${token}`);
         }
 
