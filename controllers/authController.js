@@ -129,8 +129,9 @@ exports.googleCallBack = async (req, res) => {
         let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
 
         if (existingUser) {
-            // If user already exists, return the existing user document
-            return res.redirect(`http://localhost:8100/home?token=${existingUser._id}`);
+        // If user already exists, return the existing user document
+        const token = jwt.sign({ id: userResponse._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        return res.redirect(`http://localhost:8100/home?token=${token}`);
         }
 
         // Step 4: If user doesn't exist, create a new user

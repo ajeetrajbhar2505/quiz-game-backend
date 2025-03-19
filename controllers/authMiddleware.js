@@ -1,31 +1,36 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-
-const authMiddleware = (req, res, next) => {
-  // Get token from headers
-  const token = req.headers['authorization'];
-
-  // Check if token is present
-  if (!token) {
-    return res.status(401).json({ message: 'Access Denied. No token provided.' });
-  }
-
+const authMiddleware = async (req, res, next) => {
   try {
+    // Get the authorization header
+    const authHeader = req.headers['authorization'];
+
+    // Check if it exists and starts with 'Bearer'
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Access Denied. No token provided.' });
+    }
+
+    // Extract token from 'Bearer <token>'
+    const token = authHeader.split(' ')[1];
+
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // You can fetch the user from DB here if needed
-    // Example (pseudo-code):
+    // OPTIONAL: Fetch the user from DB and check if they exist
+    // Example using Mongoose (uncomment and adjust according to your setup):
     // const user = await User.findById(decoded.id);
-    // if (!user) return res.status(401).json({ message: 'Invalid Token. User not found.' });
+    // if (!user) {
+    //   return res.status(401).json({ message: 'Invalid Token. User not found.' });
+    // }
 
-    // Attach decoded user info to the request for further use
+    // Attach user data to request
     req.user = decoded;
 
-    // Proceed to next middleware or route handler
+    // Proceed to next middleware/route
     next();
   } catch (err) {
+    console.error('Auth Middleware Error:', err.message);
     return res.status(401).json({ message: 'Invalid Token.' });
   }
 };
