@@ -25,8 +25,7 @@ const authMiddleware = async (req, res, next) => {
     // }
 
     // Attach user data to request
-    req.user = decoded;
-
+    req.body.userId = decoded.id;
     // Proceed to next middleware/route
     next();
   } catch (err) {

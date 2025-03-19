@@ -3,7 +3,7 @@ const User = require('../models/User');
 // Get single user by ID
 exports.getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('-password');
+    const user = await User.findById(req.body.userId).select('-password').select('-wallet').select('-_id').select('-createdAt');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error) {
@@ -25,7 +25,7 @@ exports.getAllUsers = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.userId,
+      req.body.userId,
       req.body,
       { new: true }
     );
@@ -38,7 +38,7 @@ exports.updateUser = async (req, res) => {
 // Delete user (optional)
 exports.deleteUser = async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.params.userId);
+    await User.findByIdAndDelete(req.body.userId);
     res.json({ message: 'User deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
