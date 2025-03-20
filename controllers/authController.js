@@ -4,9 +4,10 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
-const Wallet = require('../models/wallet'); 
+const Wallet = require('../models/wallet');
 const bcrypt = require('bcryptjs');
-require('dotenv').config(); 
+const { getIO } = require('./socketController');
+require('dotenv').config();
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URL);
 
 
@@ -129,9 +130,9 @@ exports.googleCallBack = async (req, res) => {
         let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
 
         if (existingUser) {
-        // If user already exists, return the existing user document
-        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        return res.redirect(`http://localhost:8100/home?token=${token}`);
+            // If user already exists, return the existing user document
+            const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            return res.redirect(`http://localhost:8100/home?token=${token}`);
         }
 
         // Step 4: If user doesn't exist, create a new user
@@ -170,11 +171,14 @@ exports.googleCallBack = async (req, res) => {
         //   here it should be app link instead of localhost
         const token = jwt.sign({ id: userResponse._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.redirect(`http://localhost:8100/home?token=${token}`);
+        // Emit socket event after successful login
+        const io = getIO();
+        io.emit('user-login', { token: token });
+        res.status(200).json({ message: 'Google authenticated' });
 
     } catch (error) {
         console.error('Error during Google login callback:', error);
-        res.redirect(`http://localhost:8100/login`);
+        res.status(500).json({ message: 'Error while Google authentication' });
     }
 
 }
