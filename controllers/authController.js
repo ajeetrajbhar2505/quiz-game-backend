@@ -111,7 +111,6 @@ exports.googleLogin = async (req, res) => {
 };
 
 exports.googleCallBack = async (req, res) => {
-
     const { code } = req.query; // Authorization code from Google
 
     try {
@@ -130,17 +129,23 @@ exports.googleCallBack = async (req, res) => {
         let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
 
         if (existingUser) {
-            // If user already exists, return the existing user document
+            // ✅ User already exists
             const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
             // Emit socket event after successful login
             const io = getIO();
-            io.emit('login', { token }); 
-            res.status(200).json({ message: 'Google authenticated' });
+            io.emit('login', { token });
+
+            console.log('✅ Existing user login:', existingUser.username);
+
+            // ✅ Return early to prevent continuing to create a new user!
+            return res.status(200).json({ message: 'Google authenticated (existing user)' });
         }
 
         // Step 4: If user doesn't exist, create a new user
+
         // Generate a random password since Google login does not require a password
-        const password = 'google-auth'; // You could choose another password handling strategy
+        const password = 'google-auth'; // You can improve this by making it more unique
 
         // Hash the password before saving
         const salt = await bcrypt.genSalt(10);
@@ -148,43 +153,49 @@ exports.googleCallBack = async (req, res) => {
 
         // Step 5: Create a new wallet for the user
         const newWallet = new Wallet({
-            balance: 0, // Initial wallet balance is 0 INR
+            balance: 0, // Initial wallet balance
         });
 
-        await newWallet.save(); // Save the wallet in DB
+        await newWallet.save();
 
         // Step 6: Create a new user and associate the wallet
         const newUser = new User({
-            username: name, // Use the Google name as username (you can customize this logic)
+            username: name,
             email,
-            password: hashedPassword, // Hashed password
-            role: 'student', // Default role
-            wallet: newWallet._id, // Link wallet to the user
-            googleId, // Store Google ID for reference
-            profilePicture: picture, // Store profile picture from Google
+            password: hashedPassword,
+            role: 'student',
+            wallet: newWallet._id,
+            googleId,
+            profilePicture: picture,
         });
 
-        await newUser.save(); // Save the user to the DB
+        await newUser.save();
 
-        // Step 7: Delete the password field before sending the user data in the response
+        // Step 7: Remove sensitive fields before responding
         const userResponse = newUser.toObject();
-        delete userResponse.password; // No need to send the password back to the frontend
+        delete userResponse.password;
 
-        // Step 8: Return the new user and wallet data
-        //   here it should be app link instead of localhost
-        const token = jwt.sign({ id: userResponse._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        // Step 8: Return the new user data and emit socket event
+        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         // Emit socket event after successful login
         const io = getIO();
-        io.emit('login', { token }); 
-        res.status(200).json({ message: 'Google authenticated' });
+        io.emit('login', { token });
+
+        console.log('✅ New user created and logged in:', newUser.username);
+
+        return res.status(200).json({ message: 'Google authenticated (new user)' });
 
     } catch (error) {
-        console.error('Error during Google login callback:', error);
-        res.status(500).json({ message: 'Error while Google authentication' });
-    }
+        console.error('❌ Error during Google login callback:', error);
 
-}
+        // If you already sent headers, don't try to send another response
+        if (!res.headersSent) {
+            return res.status(500).json({ message: 'Error while Google authentication' });
+        }
+    }
+};
+
 
 // Email Transporter (Configure SMTP settings)
 
