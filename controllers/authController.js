@@ -132,7 +132,10 @@ exports.googleCallBack = async (req, res) => {
         if (existingUser) {
             // If user already exists, return the existing user document
             const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            return res.redirect(`http://localhost:8100/home?token=${token}`);
+            // Emit socket event after successful login
+            const io = getIO();
+            io.emit('user-login', { token: token });
+            res.status(200).json({ message: 'Google authenticated' });
         }
 
         // Step 4: If user doesn't exist, create a new user
