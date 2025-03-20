@@ -10,20 +10,22 @@ const initSocket = (httpServer) => {
     }
   });
 
+
   io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
-
+  
+    socket.on('login', (data) => {
+      console.log('Login event received from client:', data);
+  
+      // Example: emit a login confirmation back
+      io.emit('receiveLogin', { status: 'success', user: data });
+    });
+  
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
     });
-
-    // Custom events
-    socket.on('send-message', (data) => {
-      console.log('Message received:', data);
-      io.emit('receive-message', data); // Emit globally to all clients
-    });
   });
-};
+}
 
 const getIO = () => {
   if (!io) {

@@ -134,7 +134,7 @@ exports.googleCallBack = async (req, res) => {
             const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
             // Emit socket event after successful login
             const io = getIO();
-            io.emit('user-login', { token: token });
+            io.emit('receiveLogin', { token }); 
             res.status(200).json({ message: 'Google authenticated' });
         }
 
@@ -176,7 +176,7 @@ exports.googleCallBack = async (req, res) => {
 
         // Emit socket event after successful login
         const io = getIO();
-        io.emit('user-login', { token: token });
+        io.emit('receiveLogin', { token }); 
         res.status(200).json({ message: 'Google authenticated' });
 
     } catch (error) {
