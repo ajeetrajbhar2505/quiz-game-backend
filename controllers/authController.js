@@ -134,7 +134,7 @@ exports.googleCallBack = async (req, res) => {
 
             // Emit socket event after successful login
             const io = getIO();
-            io.emit('login', { token });
+            io.emit('receiveLogin', { token });
 
             console.log('✅ Existing user login:', existingUser.username);
 
@@ -180,7 +180,7 @@ exports.googleCallBack = async (req, res) => {
 
         // Emit socket event after successful login
         const io = getIO();
-        io.emit('login', { token });
+        io.emit('receiveLogin', { token });
 
         console.log('✅ New user created and logged in:', newUser.username);
 
