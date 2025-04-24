@@ -300,6 +300,7 @@ exports.facebookLogin = async (req, res) => {
 };
 
 
+
 exports.facebookCallBack = async (req, res) => {
     const { code } = req.query;
 
@@ -312,7 +313,8 @@ exports.facebookCallBack = async (req, res) => {
             code: code
         });
 
-        const tokenData = await fetchJSON(tokenUrl);
+        const tokenRes = await fetch(tokenUrl);
+        const tokenData = await tokenRes.json();
 
         if (!tokenData.access_token) {
             return res.status(400).json({ message: 'Failed to get access token', details: tokenData });
@@ -326,7 +328,8 @@ exports.facebookCallBack = async (req, res) => {
             access_token: accessToken
         });
 
-        const profileData = await fetchJSON(profileUrl);
+        const profileRes = await fetch(profileUrl);
+        const profileData = await profileRes.json();
 
         if (profileData.error) {
             return res.status(400).json({ message: 'Failed to get Facebook profile', details: profileData });
@@ -334,8 +337,50 @@ exports.facebookCallBack = async (req, res) => {
 
         const { id: facebookId, name, email, picture } = profileData;
 
-        // Send data or generate JWT
-        res.json({ facebookId, name, email, picture });
+        // Step 3: Check if user already exists
+        let existingUser = await User.findOne({ $or: [{ email }, { username: name }] });
+
+        if (existingUser) {
+            const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+            const io = getIO();
+            io.emit('receiveLogin', { token });
+
+            console.log('✅ Existing user login (Facebook):', existingUser.username);
+            return res.status(200).json({ message: 'Facebook authenticated (existing user)', token });
+        }
+
+        // Step 4: If new user, create account
+        const password = 'facebook-auth'; // Use a random password string if needed
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newWallet = new Wallet({ balance: 0 });
+        await newWallet.save();
+
+        const newUser = new User({
+            username: name,
+            email,
+            password: hashedPassword,
+            role: 'student',
+            wallet: newWallet._id,
+            facebookId,
+            profilePicture: picture?.data?.url || '',
+        });
+
+        await newUser.save();
+
+        const userResponse = newUser.toObject();
+        delete userResponse.password;
+
+        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        const io = getIO();
+        io.emit('receiveLogin', { token });
+
+        console.log('✅ New user created via Facebook:', newUser.username);
+
+        return res.status(200).json({ message: 'Facebook authenticated (new user)', token });
 
     } catch (error) {
         console.error('Facebook login error:', error);
