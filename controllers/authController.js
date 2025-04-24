@@ -285,3 +285,75 @@ exports.verifyOTP = async (req, res) => {
     }
 };
 
+exports.facebookLogin = async (req, res) => {
+    try {
+
+        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&scope=email,public_profile&response_type=code&auth_type=rerequest`;
+
+        res.json({ url: authUrl });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Facebook authentication failed' });
+    }
+};
+
+
+exports.facebookCallBack = async (req, res) => {
+    const { code } = req.query;
+
+    try {
+        // Step 1: Exchange code for access token
+        const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?` + querystring.stringify({
+            client_id: process.env.FACEBOOK_APP_ID,
+            client_secret: process.env.FACEBOOK_APP_SECRET,
+            redirect_uri: process.env.REDIRECT_URI,
+            code: code
+        });
+
+        const tokenData = await fetchJSON(tokenUrl);
+
+        if (!tokenData.access_token) {
+            return res.status(400).json({ message: 'Failed to get access token', details: tokenData });
+        }
+
+        const accessToken = tokenData.access_token;
+
+        // Step 2: Fetch user profile
+        const profileUrl = `https://graph.facebook.com/me?` + querystring.stringify({
+            fields: 'id,name,email,picture',
+            access_token: accessToken
+        });
+
+        const profileData = await fetchJSON(profileUrl);
+
+        if (profileData.error) {
+            return res.status(400).json({ message: 'Failed to get Facebook profile', details: profileData });
+        }
+
+        const { id: facebookId, name, email, picture } = profileData;
+
+        // Send data or generate JWT
+        res.json({ facebookId, name, email, picture });
+
+    } catch (error) {
+        console.error('Facebook login error:', error);
+        res.status(500).json({ message: 'Facebook authentication failed' });
+    }
+};
+
+function fetchJSON(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }).on('error', reject);
+    });
+}
+
